@@ -1,0 +1,17 @@
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\obj\Debug\net9.0\Main.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\obj\Debug\net9.0\Main.AssemblyInfoInputs.cache
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\obj\Debug\net9.0\Main.AssemblyInfo.cs
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\obj\Debug\net9.0\Main.csproj.CoreCompileInputs.cache
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\bin\Debug\net9.0\Main.exe
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\bin\Debug\net9.0\Main.deps.json
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\bin\Debug\net9.0\Main.runtimeconfig.json
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\bin\Debug\net9.0\Main.dll
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\bin\Debug\net9.0\Main.pdb
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\obj\Debug\net9.0\Main.dll
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\obj\Debug\net9.0\refint\Main.dll
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\obj\Debug\net9.0\Main.pdb
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\obj\Debug\net9.0\Main.genruntimeconfig.cache
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\obj\Debug\net9.0\ref\Main.dll
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\bin\Debug\net9.0\BCrypt.Net-Next.dll
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\obj\Debug\net9.0\Main.csproj.AssemblyReference.cache
+C:\Users\Muktr\repos\Project\TransportAppDotnet\src\Main\obj\Debug\net9.0\Main.csproj.Up2Date

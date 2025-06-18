@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "/42/Sgo+QF8=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Muktr\\repos\\Project\\TransportAppDotnet\\src\\Main\\Main.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Muktr\\.nuget\\packages\\bcrypt.net-next\\4.0.3\\bcrypt.net-next.4.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}
