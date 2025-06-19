@@ -1,0 +1,39 @@
+# .NET build
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio
+.vs/
+
+# Rider
+.idea/
+*.sln.iml
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test results
+TestResults/
+
+# User-specific files
+*.swp
+*.bak
+*.tmp
+*.orig
+
+# Others
+*.dbmdl
+*.dbmdl-journal
+
+# Secrets
+appsettings.*.json
+!appsettings.json
+secrets.json 
