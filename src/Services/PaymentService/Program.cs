@@ -1,16 +1,15 @@
 using Microsoft.OpenApi.Models;
-using MongoDB.Driver;
+using Transport.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Configure MongoDB
+// Configure MongoDB and register transport services
 var mongoConnectionString = builder.Configuration.GetConnectionString("MongoDB") ?? "mongodb://localhost:27017";
-var mongoClient = new MongoClient(mongoConnectionString);
-var mongoDatabase = mongoClient.GetDatabase("TransportDB");
-builder.Services.AddSingleton<IMongoDatabase>(mongoDatabase);
+var databaseName = builder.Configuration["MongoDB:DatabaseName"] ?? "TransportDB";
+builder.Services.AddTransportServices(mongoConnectionString, databaseName);
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

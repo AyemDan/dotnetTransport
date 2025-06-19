@@ -3,6 +3,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Transport.Shared.Entities.MongoDB;
 using Transport.Shared.Enums;
+using Transport.Shared.Services;
 
 namespace PaymentService.Controllers;
 
@@ -10,12 +11,12 @@ namespace PaymentService.Controllers;
 [Route("api/payments")]
 public class PaymentController : ControllerBase
 {
-    private readonly IMongoCollection<PaymentLog> _paymentLogs;
+    private readonly IPaymentService _paymentService;
     private readonly ILogger<PaymentController> _logger;
 
-    public PaymentController(IMongoDatabase database, ILogger<PaymentController> logger)
+    public PaymentController(IPaymentService paymentService, ILogger<PaymentController> logger)
     {
-        _paymentLogs = database.GetCollection<PaymentLog>("paymentLogs");
+        _paymentService = paymentService;
         _logger = logger;
     }
 
@@ -30,23 +31,27 @@ public class PaymentController : ControllerBase
             var paymentLog = new PaymentLog
             {
                 UserId = Guid.Parse(paymentDto.UserId),
-                TripId = !string.IsNullOrEmpty(paymentDto.TripId) ? Guid.Parse(paymentDto.TripId) : null,
+                TripId = !string.IsNullOrEmpty(paymentDto.TripId)
+                    ? Guid.Parse(paymentDto.TripId)
+                    : null,
                 Amount = paymentDto.Amount,
-                Status = "Completed",
                 Type = paymentDto.PaymentType,
-                CreatedAt = DateTime.UtcNow
             };
 
-            await _paymentLogs.InsertOneAsync(paymentLog);
+            var processedPayment = await _paymentService.ProcessPaymentAsync(paymentLog);
 
-            _logger.LogInformation($"Payment processed for user {paymentDto.UserId} for {paymentDto.Amount:C}");
+            _logger.LogInformation(
+                $"Payment processed for user {paymentDto.UserId} for {paymentDto.Amount:C}"
+            );
 
-            return Ok(new 
-            { 
-                Message = "Payment processed successfully", 
-                PaymentId = paymentLog.Id.ToString(),
-                Status = "Completed"
-            });
+            return Ok(
+                new
+                {
+                    Message = "Payment processed successfully",
+                    PaymentId = processedPayment.Id.ToString(),
+                    Status = "Completed",
+                }
+            );
         }
         catch (Exception ex)
         {
@@ -60,35 +65,24 @@ public class PaymentController : ControllerBase
     {
         try
         {
-            var payment = await _paymentLogs.Find(p => p.Id == ObjectId.Parse(reversalDto.PaymentId)).FirstOrDefaultAsync();
-            if (payment == null)
+            var success = await _paymentService.ReversePaymentAsync(reversalDto.PaymentId, reversalDto.Reason);
+            if (!success)
             {
-                return NotFound("Payment not found");
+                return BadRequest("Payment cannot be reversed - not in completed status or not found");
             }
 
-            if (payment.Status != "Completed")
-            {
-                return BadRequest("Payment cannot be reversed - not in completed status");
-            }
+            _logger.LogInformation(
+                $"Payment reversed: {reversalDto.PaymentId} - Reason: {reversalDto.Reason}"
+            );
 
-            var update = Builders<PaymentLog>.Update
-                .Set(p => p.Status, "Reversed")
-                .Set(p => p.Type, "Reversal");
-
-            var result = await _paymentLogs.UpdateOneAsync(p => p.Id == ObjectId.Parse(reversalDto.PaymentId), update);
-            if (result.MatchedCount == 0)
-            {
-                return NotFound("Payment not found");
-            }
-
-            _logger.LogInformation($"Payment reversed: {reversalDto.PaymentId} - Reason: {reversalDto.Reason}");
-
-            return Ok(new 
-            { 
-                Message = "Payment reversed successfully", 
-                PaymentId = reversalDto.PaymentId,
-                Status = "Reversed"
-            });
+            return Ok(
+                new
+                {
+                    Message = "Payment reversed successfully",
+                    PaymentId = reversalDto.PaymentId,
+                    Status = "Reversed",
+                }
+            );
         }
         catch (Exception ex)
         {
@@ -98,20 +92,14 @@ public class PaymentController : ControllerBase
     }
 
     [HttpGet("user/{userId}")]
-    public async Task<IActionResult> GetUserPayments(string userId, [FromQuery] string? status = null)
+    public async Task<IActionResult> GetUserPayments(
+        string userId,
+        [FromQuery] string? status = null
+    )
     {
         try
         {
-            var filter = Builders<PaymentLog>.Filter.Eq(p => p.UserId, Guid.Parse(userId));
-            if (!string.IsNullOrEmpty(status))
-            {
-                filter &= Builders<PaymentLog>.Filter.Eq(p => p.Status, status);
-            }
-
-            var payments = await _paymentLogs.Find(filter)
-                .SortByDescending(p => p.CreatedAt)
-                .ToListAsync();
-
+            var payments = await _paymentService.GetUserPaymentsAsync(Guid.Parse(userId), status);
             return Ok(payments);
         }
         catch (Exception ex)
@@ -126,7 +114,7 @@ public class PaymentController : ControllerBase
     {
         try
         {
-            var payment = await _paymentLogs.Find(p => p.Id == ObjectId.Parse(paymentId)).FirstOrDefaultAsync();
+            var payment = await _paymentService.GetPaymentByIdAsync(paymentId);
             if (payment == null)
             {
                 return NotFound("Payment not found");
@@ -146,18 +134,7 @@ public class PaymentController : ControllerBase
     {
         try
         {
-            var payments = await _paymentLogs.Find(p => p.UserId == Guid.Parse(userId)).ToListAsync();
-            
-            var analytics = new
-            {
-                TotalPayments = payments.Count,
-                TotalAmount = payments.Where(p => p.Status == "Completed").Sum(p => p.Amount),
-                CompletedPayments = payments.Count(p => p.Status == "Completed"),
-                ReversedPayments = payments.Count(p => p.Status == "Reversed"),
-                PendingPayments = payments.Count(p => p.Status == "Pending"),
-                LastPaymentDate = payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault()?.CreatedAt
-            };
-
+            var analytics = await _paymentService.GetUserPaymentAnalyticsAsync(Guid.Parse(userId));
             return Ok(analytics);
         }
         catch (Exception ex)
@@ -181,4 +158,4 @@ public class PaymentReversalDto
 {
     public string PaymentId { get; set; } = string.Empty;
     public string Reason { get; set; } = string.Empty;
-} 
+}

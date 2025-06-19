@@ -6,6 +6,7 @@ using Transport.Shared.DTOs;
 using Transport.Shared.Entities;
 using Transport.Shared.Entities.MongoDB;
 using Transport.Shared.Enums;
+using Transport.Shared.Services;
 
 namespace StudentApp.Controllers;
 
@@ -14,22 +15,24 @@ namespace StudentApp.Controllers;
 public class StudentController : ControllerBase
 {
     private readonly IMongoCollection<Student> _students;
-    private readonly IMongoCollection<Booking> _bookings;
-    private readonly IMongoCollection<RFIDCard> _rfidCards;
     private readonly IMongoCollection<UserPreferences> _preferences;
+    private readonly IBookingService _bookingService;
+    private readonly IRFIDService _rfidService;
     private readonly ILogger<StudentController> _logger;
     private readonly HttpClient _httpClient;
 
     public StudentController(
         IMongoDatabase database,
+        IBookingService bookingService,
+        IRFIDService rfidService,
         ILogger<StudentController> logger,
         HttpClient httpClient
     )
     {
         _students = database.GetCollection<Student>("Students");
-        _bookings = database.GetCollection<Booking>("Bookings");
-        _rfidCards = database.GetCollection<RFIDCard>("RFIDCards");
         _preferences = database.GetCollection<UserPreferences>("UserPreferences");
+        _bookingService = bookingService;
+        _rfidService = rfidService;
         _logger = logger;
         _httpClient = httpClient;
     }
@@ -162,7 +165,7 @@ public class StudentController : ControllerBase
         }
     }
 
-    // Booking Management
+    // Booking Management - Using Service Layer
     [HttpPost("bookings")]
     public async Task<IActionResult> CreateBooking([FromBody] BookingDto bookingDto)
     {
@@ -179,7 +182,6 @@ public class StudentController : ControllerBase
 
             var booking = new Booking
             {
-                Id = ObjectId.GenerateNewId(),
                 UserId = bookingDto.UserId,
                 TripId = bookingDto.TripId,
                 BoardingStop = bookingDto.BoardingStop,
@@ -187,10 +189,9 @@ public class StudentController : ControllerBase
                 SegmentPrice = bookingDto.SegmentPrice,
                 BookingDate = bookingDto.BookingDate,
                 Status = bookingDto.Status,
-                CreatedAt = DateTime.UtcNow,
             };
 
-            await _bookings.InsertOneAsync(booking);
+            var createdBooking = await _bookingService.CreateBookingAsync(booking);
 
             // Notify notification service
             await _httpClient.PostAsJsonAsync(
@@ -198,12 +199,16 @@ public class StudentController : ControllerBase
                 new
                 {
                     UserId = student.Id,
-                    Message = $"Your booking for {bookingDto.BookingDate:MMM dd, yyyy} has been created",
-                    Type = "Booking",
+                    Type = "BookingCreated",
+                    Title = "Booking Confirmed",
+                    Message = $"Your booking for trip {bookingDto.TripId} has been created successfully.",
+                    Data = new { BookingId = createdBooking.Id, TripId = bookingDto.TripId },
                 }
             );
 
-            return Ok(new { Message = "Booking created successfully", BookingId = booking.Id });
+            return Ok(
+                new { Message = "Booking created successfully", BookingId = createdBooking.Id }
+            );
         }
         catch (Exception ex)
         {
@@ -225,18 +230,18 @@ public class StudentController : ControllerBase
                 return BadRequest("Invalid student ID format");
             }
 
-            var filter = Builders<Booking>.Filter.Eq(b => b.UserId, studentGuid);
+            var bookings = await _bookingService.GetBookingsByUserIdAsync(studentGuid);
+
             if (!string.IsNullOrEmpty(status))
             {
-                filter &= Builders<Booking>.Filter.Eq(b => b.Status, status);
+                bookings = bookings.Where(b => b.Status == status);
             }
 
-            var bookings = await _bookings.Find(filter).ToListAsync();
             return Ok(bookings);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving bookings");
+            _logger.LogError(ex, "Error retrieving student bookings");
             return StatusCode(500, "Internal server error");
         }
     }
@@ -246,17 +251,15 @@ public class StudentController : ControllerBase
     {
         try
         {
-            if (!ObjectId.TryParse(bookingId, out var bookingObjectId))
+            if (!Guid.TryParse(bookingId, out var bookingGuid))
             {
                 return BadRequest("Invalid booking ID format");
             }
 
-            var update = Builders<Booking>.Update.Set(b => b.Status, "Cancelled");
-
-            var result = await _bookings.UpdateOneAsync(b => b.Id == bookingObjectId, update);
-            if (result.MatchedCount == 0)
+            var success = await _bookingService.CancelBookingAsync(bookingGuid);
+            if (!success)
             {
-                return NotFound("Booking not found");
+                return NotFound("Booking not found or could not be cancelled");
             }
 
             return Ok("Booking cancelled successfully");
@@ -268,32 +271,23 @@ public class StudentController : ControllerBase
         }
     }
 
-    // RFID Card Management
+    // RFID Card Management - Using Service Layer
     [HttpPost("rfid-cards")]
     public async Task<IActionResult> AssignRFIDCard([FromBody] RFIDCardDto cardDto)
     {
         try
         {
-            // Verify student exists
-            var student = await _students.Find(s => s.Id == cardDto.UserId).FirstOrDefaultAsync();
-            if (student == null)
-            {
-                return BadRequest("Student not found");
-            }
-
             var rfidCard = new RFIDCard
             {
-                Id = ObjectId.GenerateNewId(),
-                UserId = cardDto.UserId,
                 CardNumber = cardDto.CardNumber,
-                Status = "Active",
-                IssueDate = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
+                UserId = cardDto.UserId,
+                CardType = cardDto.CardType,
+                IsActive = true,
             };
 
-            await _rfidCards.InsertOneAsync(rfidCard);
+            var createdCard = await _rfidService.CreateRFIDCardAsync(rfidCard);
 
-            return Ok(new { Message = "RFID card assigned successfully", CardId = rfidCard.Id });
+            return Ok(new { Message = "RFID card assigned successfully", CardId = createdCard.Id });
         }
         catch (Exception ex)
         {
@@ -312,24 +306,24 @@ public class StudentController : ControllerBase
                 return BadRequest("Invalid student ID format");
             }
 
-            var rfidCard = await _rfidCards
-                .Find(c => c.UserId == studentGuid && c.Status == "Active")
-                .FirstOrDefaultAsync();
-            if (rfidCard == null)
+            var rfidCards = await _rfidService.GetRFIDCardsByUserIdAsync(studentGuid);
+            var activeCard = rfidCards.FirstOrDefault(c => c.IsActive);
+
+            if (activeCard == null)
             {
                 return NotFound("No active RFID card found for this student");
             }
 
-            return Ok(rfidCard);
+            return Ok(activeCard);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving RFID card");
+            _logger.LogError(ex, "Error retrieving student RFID card");
             return StatusCode(500, "Internal server error");
         }
     }
 
-    // User Preferences
+    // User Preferences Management
     [HttpGet("preferences/{studentId}")]
     public async Task<IActionResult> GetUserPreferences(string studentId)
     {
@@ -343,6 +337,7 @@ public class StudentController : ControllerBase
             var preferences = await _preferences
                 .Find(p => p.UserId == studentGuid)
                 .FirstOrDefaultAsync();
+
             if (preferences == null)
             {
                 return NotFound("User preferences not found");
@@ -370,7 +365,9 @@ public class StudentController : ControllerBase
                 return BadRequest("Invalid student ID format");
             }
 
-            var update = Builders<UserPreferences>.Update.Set(p => p.UpdatedAt, DateTime.UtcNow);
+            preferences.UserId = studentGuid;
+
+            var update = Builders<UserPreferences>.Update.Set(p => p.UserId, studentGuid);
 
             var result = await _preferences.UpdateOneAsync(p => p.UserId == studentGuid, update);
             if (result.MatchedCount == 0)
@@ -388,7 +385,7 @@ public class StudentController : ControllerBase
     }
 }
 
-// DTOs for Student Application
+// DTOs
 public class StudentRegistrationDto
 {
     public string Name { get; set; } = string.Empty;

@@ -1,6 +1,7 @@
 ﻿using System.CommandLine;
 using System.Text;
 using System.Text.Json;
+using System.Net.Http.Json;
 
 namespace PlatformManager;
 

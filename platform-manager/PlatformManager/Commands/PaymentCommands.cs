@@ -11,14 +11,18 @@ public static class PaymentCommands
         var paymentCommand = new Command("payment", "Payment management commands");
 
         // Payment logs
-        var listPaymentsCommand = new Command("list", "List payment logs")
-        {
-            new Argument<string>("organization", "Organization name or alias"),
-            new Option<string>("--admin-level", "Required admin level (Super, Organization, School)") { DefaultValueFactory = () => "Organization" },
-            new Option<string>("--status", "Filter by status (Pending, Completed, Failed)"),
-            new Option<DateTime>("--from", "Filter from date"),
-            new Option<DateTime>("--to", "Filter to date")
-        };
+        var listPaymentsCommand = new Command("list", "List payment logs");
+        var orgArg = new Argument<string>("organization", "Organization name or alias");
+        var adminLevelOpt = new Option<string>("--admin-level", "Required admin level (Super, Organization, School)");
+        adminLevelOpt.SetDefaultValue("Organization");
+        var statusOpt = new Option<string>("--status", "Filter by status (Pending, Completed, Failed)");
+        var fromOpt = new Option<DateTime>("--from", "Filter from date");
+        var toOpt = new Option<DateTime>("--to", "Filter to date");
+        listPaymentsCommand.AddArgument(orgArg);
+        listPaymentsCommand.AddOption(adminLevelOpt);
+        listPaymentsCommand.AddOption(statusOpt);
+        listPaymentsCommand.AddOption(fromOpt);
+        listPaymentsCommand.AddOption(toOpt);
         listPaymentsCommand.SetHandler(async (organization, adminLevel, status, from, to) =>
         {
             try
@@ -57,17 +61,19 @@ public static class PaymentCommands
             {
                 Console.WriteLine($"✗ Error: {ex.Message}");
             }
-        }, listPaymentsCommand.Arguments[0], listPaymentsCommand.Options[0], listPaymentsCommand.Options[1],
-           listPaymentsCommand.Options[2], listPaymentsCommand.Options[3]);
+        }, orgArg, adminLevelOpt, statusOpt, fromOpt, toOpt);
 
         // Payment reversal
-        var reversePaymentCommand = new Command("reverse", "Reverse a payment")
-        {
-            new Argument<string>("paymentId", "Payment ID to reverse"),
-            new Argument<string>("organization", "Organization name or alias"),
-            new Option<string>("--admin-level", "Required admin level (Super, Organization)") { DefaultValueFactory = () => "Organization" },
-            new Option<string>("--reason", "Reason for reversal")
-        };
+        var reversePaymentCommand = new Command("reverse", "Reverse a payment");
+        var paymentIdArg = new Argument<string>("paymentId", "Payment ID to reverse");
+        var reverseOrgArg = new Argument<string>("organization", "Organization name or alias");
+        var reverseAdminLevelOpt = new Option<string>("--admin-level", "Required admin level (Super, Organization)");
+        reverseAdminLevelOpt.SetDefaultValue("Organization");
+        var reasonOpt = new Option<string>("--reason", "Reason for reversal");
+        reversePaymentCommand.AddArgument(paymentIdArg);
+        reversePaymentCommand.AddArgument(reverseOrgArg);
+        reversePaymentCommand.AddOption(reverseAdminLevelOpt);
+        reversePaymentCommand.AddOption(reasonOpt);
         reversePaymentCommand.SetHandler(async (paymentId, organization, adminLevel, reason) =>
         {
             try
@@ -99,17 +105,19 @@ public static class PaymentCommands
             {
                 Console.WriteLine($"✗ Error: {ex.Message}");
             }
-        }, reversePaymentCommand.Arguments[0], reversePaymentCommand.Arguments[1],
-           reversePaymentCommand.Options[0], reversePaymentCommand.Options[1]);
+        }, paymentIdArg, reverseOrgArg, reverseAdminLevelOpt, reasonOpt);
 
         // Financial summary
-        var financialSummaryCommand = new Command("summary", "Get financial summary")
-        {
-            new Argument<string>("organization", "Organization name or alias"),
-            new Option<string>("--admin-level", "Required admin level (Super, Organization)") { DefaultValueFactory = () => "Organization" },
-            new Option<DateTime>("--from", "Summary from date"),
-            new Option<DateTime>("--to", "Summary to date")
-        };
+        var financialSummaryCommand = new Command("summary", "Get financial summary");
+        var summaryOrgArg = new Argument<string>("organization", "Organization name or alias");
+        var summaryAdminLevelOpt = new Option<string>("--admin-level", "Required admin level (Super, Organization)");
+        summaryAdminLevelOpt.SetDefaultValue("Organization");
+        var summaryFromOpt = new Option<DateTime>("--from", "Summary from date");
+        var summaryToOpt = new Option<DateTime>("--to", "Summary to date");
+        financialSummaryCommand.AddArgument(summaryOrgArg);
+        financialSummaryCommand.AddOption(summaryAdminLevelOpt);
+        financialSummaryCommand.AddOption(summaryFromOpt);
+        financialSummaryCommand.AddOption(summaryToOpt);
         financialSummaryCommand.SetHandler(async (organization, adminLevel, from, to) =>
         {
             try
@@ -146,8 +154,7 @@ public static class PaymentCommands
             {
                 Console.WriteLine($"✗ Error: {ex.Message}");
             }
-        }, financialSummaryCommand.Arguments[0], financialSummaryCommand.Options[0],
-           financialSummaryCommand.Options[1], financialSummaryCommand.Options[2]);
+        }, summaryOrgArg, summaryAdminLevelOpt, summaryFromOpt, summaryToOpt);
 
         paymentCommand.AddCommand(listPaymentsCommand);
         paymentCommand.AddCommand(reversePaymentCommand);

@@ -1,17 +1,60 @@
 using Microsoft.OpenApi.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using API.Gateway.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// Configure PostgreSQL Database
+builder.Services.AddDbContext<GatewayDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgresConnection") ?? 
+        "Host=localhost;Port=5432;Database=TransportApp;Username=postgres;Password=root"));
+
+// Configure JWT Authentication
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "YourSuperSecretKeyHereMakeItLongEnoughForSecurity";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "TransportApp";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "TransportApp";
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo 
     { 
         Title = "Transport API Gateway", 
         Version = "v1",
-        Description = "API Gateway for Transport Microservices"
+        Description = "API Gateway for Transport Microservices with Authentication"
+    });
+    
+    // Add security definitions
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
     });
 });
 
@@ -44,6 +87,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Basic routing to microservices
@@ -57,7 +102,6 @@ app.MapGet("/services", () => new
 {
     Services = new[]
     {
-        new { Name = "Auth Service", Url = "http://localhost:5128", Status = "Running" },
         new { Name = "Payment Service", Url = "http://localhost:5057", Status = "Running" },
         new { Name = "Notification Service", Url = "http://localhost:5264", Status = "Running" },
         new { Name = "Student App", Url = "http://localhost:5155", Status = "Running" },
@@ -67,13 +111,6 @@ app.MapGet("/services", () => new
 });
 
 // Gateway endpoints that can route to specific services
-app.MapGet("/api/auth/{*path}", async (string path, IHttpClientFactory httpClientFactory) =>
-{
-    var client = httpClientFactory.CreateClient();
-    var response = await client.GetAsync($"http://localhost:5128/api/auth/{path}");
-    return Results.Ok(new { Message = "Auth service endpoint", Path = path });
-});
-
 app.MapGet("/api/payment/{*path}", async (string path, IHttpClientFactory httpClientFactory) =>
 {
     var client = httpClientFactory.CreateClient();

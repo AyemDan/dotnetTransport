@@ -1,19 +1,18 @@
 using Microsoft.OpenApi.Models;
-using MongoDB.Driver;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Transport.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Configure MongoDB
+// Configure MongoDB and register transport services
 var mongoConnectionString = builder.Configuration.GetConnectionString("MongoDB") ?? "mongodb://localhost:27017";
-var mongoClient = new MongoClient(mongoConnectionString);
-var mongoDatabase = mongoClient.GetDatabase("TransportDB");
-builder.Services.AddSingleton<IMongoDatabase>(mongoDatabase);
+var databaseName = builder.Configuration["MongoDB:DatabaseName"] ?? "TransportDB";
+builder.Services.AddTransportServices(mongoConnectionString, databaseName);
 
 // Configure HTTP client for cross-service communication
 builder.Services.AddHttpClient();

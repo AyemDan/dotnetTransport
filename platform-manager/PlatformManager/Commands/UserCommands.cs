@@ -160,10 +160,12 @@ public static class UserCommands
             new Argument<string>("name", "Admin name"),
             new Argument<string>("email", "Admin email"),
             new Argument<string>("organization", "Organization name or alias"),
-            new Option<string>("--level", "Admin level (Super, Organization, School)") { DefaultValueFactory = () => "School" },
             new Option<string>("--phone", "Phone number")
         };
-        createAdminCommand.SetHandler(async (name, email, organization, level, phone) =>
+        var levelOpt = new Option<string>("--level", "Admin level (Super, Organization, School)");
+        levelOpt.SetDefaultValue("School");
+        createAdminCommand.AddOption(levelOpt);
+        createAdminCommand.SetHandler(async (name, email, organization, phone) =>
         {
             try
             {
@@ -173,7 +175,7 @@ public static class UserCommands
                     Name = name,
                     Email = email,
                     OrganizationName = orgName,
-                    AdminLevel = level,
+                    AdminLevel = levelOpt.Value,
                     Phone = phone
                 };
 
@@ -184,7 +186,7 @@ public static class UserCommands
                 var response = await client.PostAsync("http://localhost:5001/api/gateway/admins", content);
                 if (response.IsSuccessStatusCode)
                 {
-                    Console.WriteLine($"✓ Admin '{name}' created successfully in '{orgName}' with level '{level}'");
+                    Console.WriteLine($"✓ Admin '{name}' created successfully in '{orgName}' with level '{levelOpt.Value}'");
                 }
                 else
                 {
@@ -196,7 +198,7 @@ public static class UserCommands
                 Console.WriteLine($"✗ Error: {ex.Message}");
             }
         }, createAdminCommand.Arguments[0], createAdminCommand.Arguments[1], createAdminCommand.Arguments[2],
-           createAdminCommand.Options[0], createAdminCommand.Options[1]);
+           createAdminCommand.Options[0]);
 
         userCommand.AddCommand(createStudentCommand);
         userCommand.AddCommand(listStudentsCommand);
